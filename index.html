@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedro Loups Garous - لعبة المستذئبين</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <style>
+        /* CSS المعدل */
+        :root {
+            --primary-color: #6a1b9a;
+            --secondary-color: #9c27b0;
+            --text-color: #f5f5f5;
+            --background-dark: #121212;
+            --background-light: #1e1e1e;
+            --danger-color: #e53935;
+            --success-color: #43a047;
+            --werewolf-color: #8e24aa;
+            --villager-color: #4caf50;
+            --neutral-color: #ff9800;
+            --online-color: #00e676;
+            --offline-color: #757575;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Tajawal', Arial, sans-serif;
+            background-color: var(--background-dark);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        header h1 {
+            color: white;
+            font-size: 1.8rem;
+            margin: 0;
+        }
+
+        #game-container {
+            flex: 1;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        h1, h2, h3 {
+            color: var(--secondary-color);
+            text-align: center;
+        }
+
+        .player-card {
+            background-color: var(--background-light);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border-left: 5px solid transparent;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .player-card.werewolf {
+            border-left-color: var(--werewolf-color);
+        }
+
+        .player-card.villager {
+            border-left-color: var(--villager-color);
+        }
+
+        .player-card.neutral {
+            border-left-color: var(--neutral-color);
+        }
+
+        .player-card.dead {
+            opacity: 0.5;
+            text-decoration: line-through;
+            background-color: #333;
+        }
+
+        .player-card .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-card .player-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .player-card .player-status.online {
+            background-color: var(--online-color);
+        }
+
+        .player-card .player-status.offline {
+            background-color: var(--offline-color);
+        }
+
+        .player-card .player-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: inherit;
+            min-width: 100px;
+        }
+
+        button:hover {
+            background-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        button.danger {
+            background-color: var(--danger-color);
+        }
+
+        button.success {
+            background-color: var(--success-color);
+        }
+
+        #game-log {
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            flex-shrink: 0;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .phase-indicator {
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .night-phase {
+            background-color: #0a0a2a;
+            border: 1px solid #3333aa;
+            color: #aaaaff;
+        }
+
+        .day-phase {
+            background-color: #2a2a0a;
+            border: 1px solid #aaaa33;
+            color: #ffffaa;
+        }
+
+        .role-info {
+            background-color: var(--background-light);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--secondary-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .role-info h3 {
+            margin-top: 0;
+            color: var(--text-color);
+        }
+
+        .settings-panel {
+            background-color: var(--background-light);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        select, input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: white;
+            font-family: inherit;
+            min-width: 150px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .player-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            flex: 1;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        .action-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .vote-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .game-id-display {
+            background-color: var(--background-light);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .copy-btn {
+            background-color: transparent;
+            border: 1px solid var(--secondary-color);
+            padding: 2px 5px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        .copy-btn:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .selected {
+            background-color: var(--primary-color);
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(106, 27, 154, 0.7);
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .player-list {
+                grid-template-columns: 1fr;
+            }
+            
+            .settings-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            header h1 {
+                font-size: 1.4rem;
+            }
+        }
+
+        /* أنيميشن للانتقال بين المراحل */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        /* تأثيرات للشاشات الصغيرة */
+        @media (max-width: 480px) {
+            button {
+                padding: 8px 10px;
+                min-width: 80px;
+                font-size: 12px;
+            }
+            
+            .player-card {
+                padding: 10px;
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+            
+            .player-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Pedro Loups Garous</h1>
+    </header>
+
+    <div id="game-container">
+        <!-- شاشة البداية -->
+        <div id="welcome-screen" class="screen active">
+            <h2>لعبة المستذئبين عبر الإنترنت</h2>
+            <div class="settings-panel">
+                <div class="settings-row">
+                    <label for="player-name">اسم اللاعب:</label>
+                    <input type="text" id="player-name" placeholder="ادخل اسمك" maxlength="20">
+                </div>
+                <div class="settings-row">
+                    <label for="game-mode">نمط اللعبة:</label>
+                    <select id="game-mode">
+                        <option value="classic">كلاسيكي</option>
+                        <option value="quick">سريع</option>
+                        <option value="custom">مخصص</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label for="player-count">عدد اللاعبين:</label>
+                    <input type="number" id="player-count" min="5" max="20" value="8">
+                </div>
+            </div>
+            <div class="action-panel">
+                <button id="create-game">إنشاء غرفة</button>
+                <button id="join-game">الانضمام إلى غرفة</button>
+            </div>
+            <div id="join-section" class="hidden" style="margin-top: 20px;">
+                <div class="settings-row">
+                    <label for="game-id">معرف الغرفة:</label>
+                    <input type="text" id="game-id" placeholder="أدخل معرف الغرفة">
+                </div>
+                <button id="confirm-join">تأكيد الانضمام</button>
+            </div>
+        </div>
+
+        <!-- شاشة الغرفة -->
+        <div id="lobby-screen" class="screen">
+            <h2>غرفة اللعب</h2>
+            <div id="game-id-display" class="game-id-display hidden">
+                معرف الغرفة: <span id="game-id-text"></span>
+                <button class="copy-btn" onclick="copyGameId()">نسخ</button>
+            </div>
+            <div class="role-info hidden" id="lobby-role-info">
+                <h3>دورك: <span id="lobby-role-name"></span></h3>
+                <p id="lobby-role-desc"></p>
+            </div>
+            <div class="player-list" id="players-list"></div>
+            <div class="action-panel">
+                <button id="start-game" disabled>بدء اللعبة</button>
+                <button id="leave-lobby">مغادرة الغرفة</button>
+            </div>
+        </div>
+
+        <!-- شاشة اللعبة -->
+        <div id="game-screen" class="screen">
+            <div class="phase-indicator night-phase hidden" id="night-indicator">
+                <h2>وقت الليل - اليوم <span id="day-number">0</span></h2>
+            </div>
+            <div class="phase-indicator day-phase hidden" id="day-indicator">
+                <h2>وقت النهار - اليوم <span id="day-number-day">0</span></h2>
+            </div>
+
+            <div class="role-info">
+                <h3>دورك: <span id="current-role-name"></span></h3>
+                <p id="current-role-desc"></p>
+            </div>
+
+            <div id="night-actions" class="hidden">
+                <h3>إجراءات الليل</h3>
+                <div id="role-specific-actions"></div>
+                <button id="submit-night-action" disabled>تأكيد الإجراء</button>
+            </div>
+
+            <div id="day-actions" class="hidden">
+                <h3>وقت المناقشة</h3>
+                <div id="discussion-area">
+                    <p id="night-results"></p>
+                    <p id="discussion-text">ناقش مع اللاعبين لتكتشف المستذئبين!</p>
+                </div>
+                <div class="vote-buttons" id="voting-buttons"></div>
+                <button id="submit-vote" disabled>تأكيد التصويت</button>
+            </div>
+
+            <div id="game-over-panel" class="hidden">
+                <h2 id="game-result-title"></h2>
+                <p id="game-result-desc"></p>
+                <div id="winner-players"></div>
+                <button id="return-to-lobby">العودة إلى الغرفة</button>
+            </div>
+        </div>
+
+        <!-- سجل الأحداث -->
+        <div id="game-log">
+            <h3>سجل الأحداث</h3>
+            <div id="log-entries"></div>
+        </div>
+    </div>
+
+    <footer>
+        Pedro Loups Garous - لعبة المستذئبين عبر الإنترنت © 2023
+    </footer>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDEXAMPLEEXAMPLEEXAMPLEEXAMPLE",
+            authDomain: "pedro-loups-garous.firebaseapp.com",
+            databaseURL: "https://pedro-loups-garous.firebaseio.com",
+            projectId: "pedro-loups-garous",
+            storageBucket: "pedro-loups-garous.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:EXAMPLEEXAMPLEEXAMPLE"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // العناصر الأساسية
+            const welcomeScreen = document.getElementById('welcome-screen');
+            const lobbyScreen = document.getElementById('lobby-screen');
+            const gameScreen = document.getElementById('game-screen');
+            
+            // عناصر اللوبي
+            const playerNameInput = document.getElementById('player-name');
+            const gameModeSelect = document.getElementById('game-mode');
+            const playerCountInput = document.getElementById('player-count');
+            const createGameBtn = document.getElementById('create-game');
+            const joinGameBtn = document.getElementById('join-game');
+            const joinSection = document.getElementById('join-section');
+            const confirmJoinBtn = document.getElementById('confirm-join');
+            const gameIdInput = document.getElementById('game-id');
+            const playersList = document.getElementById('players-list');
+            const startGameBtn = document.getElementById('start-game');
+            const leaveLobbyBtn = document.getElementById('leave-lobby');
+            const gameIdDisplay = document.getElementById('game-id-display');
+            const gameIdText = document.getElementById('game-id-text');
+            
+            // عناصر اللعبة
+            const nightIndicator = document.getElementById('night-indicator');
+            const dayIndicator = document.getElementById('day-indicator');
+            const currentRoleName = document.getElementById('current-role-name');
+            const currentRoleDesc = document.getElementById('current-role-desc');
+            const nightActions = document.getElementById('night-actions');
+            const roleSpecificActions = document.getElementById('role-specific-actions');
+            const submitNightAction = document.getElementById('submit-night-action');
+            const dayActions = document.getElementById('day-actions');
+            const nightResults = document.getElementById('night-results');
+            const discussionText = document.getElementById('discussion-text');
+            const votingButtons = document.getElementById('voting-buttons');
+            const submitVote = document.getElementById('submit-vote');
+            const gameOverPanel = document.getElementById('game-over-panel');
+            const gameResultTitle = document.getElementById('game-result-title');
+            const gameResultDesc = document.getElementById('game-result-desc');
+            const winnerPlayers = document.getElementById('winner-players');
+            const returnToLobbyBtn = document.getElementById('return-to-lobby');
+            
+            // سجل الأحداث
+            const logEntries = document.getElementById('log-entries');
+            
+            // حالة اللعبة
+            const gameState = {
+                players: [],
+                currentPlayer: null,
+                gameStarted: false,
+                currentPhase: 'lobby',
+                dayNumber: 0,
+                currentRole: null,
+                gameMode: 'classic',
+                playerCount: 8,
+                isHost: false,
+                selectedPlayer: null,
+                voteTarget: null,
+                gameLog: [],
+                gameId: null,
+                gameRef: null,
+                playerRef: null,
+                roleActions: {},
+                votes: {},
+                lovers: []
+            };
+            
+            // تعريف الأدوار
+            const roles = {
+                werewolf: {
+                    name: 'مستذئب',
+                    team: 'werewolves',
+                    description: 'تقتل ليلاً وتحاول البقاء مخفية نهاراً. هدفك القضاء على القرويين.',
+                    nightAction: 'اختر لاعباً لقتله هذه الليلة',
+                    priority: 2,
+                    emoji: '🐺'
+                },
+                villager: {
+                    name: 'قروي',
+                    team: 'villagers',
+                    description: 'لا تملك قدرات خاصة. هدفك اكتشاف المستذئبين وإعدامهم.',
+                    priority: 0,
+                    emoji: '🏘️'
+                },
+                seer: {
+                    name: 'عراف',
+                    team: 'villagers',
+                    description: 'تستطيع كشف هوية لاعب واحد كل ليلة. استخدم هذه المعلومة بحكمة.',
+                    nightAction: 'اختر لاعباً لمعرفة هويته',
+                    priority: 3,
+                    emoji: '🔮'
+                },
+                witch: {
+                    name: 'ساحرة',
+                    team: 'villagers',
+                    description: 'تملك جرعة إنقاذ وجرعة قتل. يمكن استخدام كل منهما مرة واحدة في اللعبة.',
+                    nightAction: 'اختر استخدام جرعة الإنقاذ أو القتل',
+                    priority: 4,
+                    emoji: '🧙'
+                },
+                hunter: {
+                    name: 'صياد',
+                    team: 'villagers',
+                    description: 'إذا تم إعدامك، يمكنك قتل لاعب آخر قبل مغادرتك.',
+                    priority: 0,
+                    emoji: '🏹'
+                },
+                cupid: {
+                    name: 'كيوبيد',
+                    team: 'neutral',
+                    description: 'في الليلة الأولى، تربط بين لاعبين بالحب. إذا مات أحدهما، يموت الآخر.',
+                    nightAction: 'اختر لاعبين لربطهما بالحب',
+                    priority: 1,
+                    emoji: '💘'
+                },
+                little_girl: {
+                    name: 'الطفلة الصغيرة',
+                    team: 'villagers',
+                    description: 'يمكنك محاولة مشاهدة المستذئبين ليلاً، لكن إذا اكتشفوك، سوف يقتلونك!',
+                    priority: 0,
+                    emoji: '👧'
+                },
+                white_werewolf: {
+                    name: 'المستذئب الأبيض',
+                    team: 'werewolves',
+                    description: 'هدفك أن تكون آخر ناجٍ في اللعبة، حتى لو اضطررت لقتل المستذئبين الآخرين.',
+                    nightAction: 'اختر لاعباً لقتله هذه الليلة',
+                    priority: 2,
+                    emoji: '🐺❄️'
+                }
+            };
+            
+            // تهيئة الأحداث
+            initEvents();
+            
+            function initEvents() {
+                // أحداث شاشة البداية
+                createGameBtn.addEventListener('click', createGame);
+                joinGameBtn.addEventListener('click', () => {
+                    joinSection.classList.toggle('hidden');
+                });
+                confirmJoinBtn.addEventListener('click', joinGame);
+                
+                // أحداث اللوبي
+                startGameBtn.addEventListener('click', startGame);
+                leaveLobbyBtn.addEventListener('click', leaveLobby);
+                
+                // أحداث اللعبة
+                submitNightAction.addEventListener('click', submitNightActionHandler);
+                submitVote.addEventListener('click', submitVoteHandler);
+                returnToLobbyBtn.addEventListener('click', returnToLobby);
+                
+                // عند تغيير عدد اللاعبين، تحديث الأدوار المتاحة
+                playerCountInput.addEventListener('change', updateGameSettings);
+            }
+            
+            function createGame() {
+                const playerName = playerNameInput.value.trim();
+                if (!playerName) {
+                    alert('الرجاء إدخال اسم اللاعب');
+                    return;
+                }
+                
+                gameState.currentPlayer = {
+                    id: generateId(),
+                    name: playerName,
+                    role: null,
+                    isAlive: true,
+                    isHost: true,
+                    isOnline: true
+                };
+                
+                gameState.gameMode = gameModeSelect.value;
+                gameState.playerCount = parseInt(playerCountInput.value);
+                gameState.isHost = true;
+                
+                // إنشاء معرف فريد للعبة
+                gameState.gameId = generateGameId();
+                gameState.gameRef = database.ref('games/' + gameState.gameId);
+                
+                // إعداد بيانات اللعبة الأولية
+                const gameData = {
+                    settings: {
+                        mode: gameState.gameMode,
+                        maxPlayers: gameState.playerCount,
+                        status: 'waiting',
+                        createdAt: firebase.database.ServerValue.TIMESTAMP
+                    },
+                    players: {
+                        [gameState.currentPlayer.id]: {
+                            name: gameState.currentPlayer.name,
+                            isHost: true,
+                            isOnline: true,
+                            ready: false
+                        }
+                    }
+                };
+                
+                // حفظ اللعبة في قاعدة البيانات
+                gameState.gameRef.set(gameData)
+                    .then(() => {
+                        // إضافة اللاعب المضيف
+                        gameState.players = [gameState.currentPlayer];
+                        
+                        // تحديث واجهة المستخدم
+                        updatePlayersList();
+                        welcomeScreen.classList.remove('active');
+                        lobbyScreen.classList.add('active');
+                        
+                        // عرض معرف الغرفة
+                        gameIdDisplay.classList.remove('hidden');
+                        gameIdText.textContent = gameState.gameId;
+                        
+                        // تمكين زر البدء للمضيف
+                        startGameBtn.disabled = gameState.players.length < 5;
+                        
+                        // إعداد مستمع للتغييرات في اللعبة
+                        setupGameListeners();
+                        
+                        // إضافة رسالة للسجل
+                        addLogEntry(`أنشأت غرفة جديدة (${gameState.gameMode})`);
+                    })
+                    .catch(error => {
+                        console.error('Error creating game:', error);
+                        alert('حدث خطأ أثناء إنشاء الغرفة. الرجاء المحاولة مرة أخرى.');
+                    });
+            }
+            
+            function joinGame() {
+                const playerName = playerNameInput.value.trim();
+                const gameId = gameIdInput.value.trim();
+                
+                if (!playerName) {
+                    alert('الرجاء إدخال اسم اللاعب');
+                    return;
+                }
+                
+                if (!gameId) {
+                    alert('الرجاء إدخال معرف الغرفة');
+                    return;
+                }
+                
+                gameState.currentPlayer = {
+                    id: generateId(),
+                    name: playerName,
+                    role: null,
+                    isAlive: true,
+                    isHost: false,
+                    isOnline: true
+                };
+                
+                gameState.gameId = gameId;
+                gameState.gameRef = database.ref('games/' + gameState.gameId);
+                
+                // التحقق من وجود الغرفة
+                gameState.gameRef.once('value')
+                    .then(snapshot => {
+                        if (!snapshot.exists()) {
+                            throw new Error('الغرفة غير موجودة');
+                        }
+                        
+                        const gameData = snapshot.val();
+                        
+                        // التحقق من أن الغرفة لا تزال في مرحلة الانتظار
+                        if (gameData.settings.status !== 'waiting') {
+                            throw new Error('اللعبة قد بدأت بالفعل');
+                        }
+                        
+                        // التحقق من أن هناك مكانًا للاعب جديد
+                        const playerCount = Object.keys(gameData.players || {}).length;
+                        if (playerCount >= gameData.settings.maxPlayers) {
+                            throw new Error('الغرفة ممتلئة');
+                        }
+                        
+                        // الانضمام إلى الغرفة
+                        return gameState.gameRef.child('players/' + gameState.currentPlayer.id).set({
+                            name: gameState.currentPlayer.name,
+                            isHost: false,
+                            isOnline: true,
+                            ready: false
+                        });
+                    })
+                    .then(() => {
+                        // تحديث واجهة المستخدم
+                        welcomeScreen.classList.remove('active');
+                        lobbyScreen.classList.add('active');
+                        
+                        // إعداد مستمع للتغييرات في اللعبة
+                        setupGameListeners();
+                        
+                        // إضافة رسالة للسجل
+                        addLogEntry(`انضممت إلى الغرفة كـ ${playerName}`);
+                    })
+                    .catch(error => {
+                        console.error('Error joining game:', error);
+                        alert(error.message || 'حدث خطأ أثناء الانضمام إلى الغرفة. الرجاء المحاولة مرة أخرى.');
+                    });
+            }
+            
+            function setupGameListeners() {
+                // الاستماع إلى تغييرات اللاعبين
+                gameState.gameRef.child('players').on('value', snapshot => {
+                    const playersData = snapshot.val() || {};
+                    gameState.players = Object.keys(playersData).map(playerId => {
+                        return {
+                            id: playerId,
+                            name: playersData[playerId].name,
+                            isHost: playersData[playerId].isHost,
+                            isOnline: playersData[playerId].isOnline,
+                            isAlive: true,
+                            role: null
+                        };
+                    });
+                    
+                    // تحديث قائمة اللاعبين
+                    updatePlayersList();
+                    
+                    // إذا كنت المضيف، تحقق إذا كان يمكن بدء اللعبة
+                    if (gameState.currentPlayer.isHost) {
+                        startGameBtn.disabled = gameState.players.length < 5;
+                    }
+                });
+                
+                // الاستماع إلى بدء اللعبة
+                gameState.gameRef.child('settings/status').on('value', snapshot => {
+                    const status = snapshot.val();
+                    
+                    if (status === 'playing' && !gameState.gameStarted) {
+                        // بدء اللعبة
+                        gameState.gameStarted = true;
+                        lobbyScreen.classList.remove('active');
+                        gameScreen.classList.add('active');
+                        
+                        // الحصول على الأدوار الموزعة
+                        gameState.gameRef.child('roles').once('value')
+                            .then(rolesSnapshot => {
+                                const rolesData = rolesSnapshot.val();
+                                gameState.currentRole = rolesData[gameState.currentPlayer.id];
+                                
+                                // إظهار دور اللاعب الحالي
+                                showPlayerRole();
+                                
+                                // بدء الليلة الأولى
+                                startNightPhase();
+                                
+                                // إضافة رسالة للسجل
+                                addLogEntry('بدأت اللعبة!');
+                            });
+                    }
+                });
+                
+                // الاستماع إلى أحداث اللعبة
+                gameState.gameRef.child('events').on('child_added', snapshot => {
+                    const event = snapshot.val();
+                    addLogEntry(event.message);
+                    
+                    // معالجة بعض الأحداث الخاصة
+                    if (event.type === 'game_over') {
+                        endGame(event.data.title, event.data.message, event.data.winners);
+                    }
+                });
+                
+                // تحديث حالة الاتصال للاعب
+                gameState.playerRef = gameState.gameRef.child('players/' + gameState.currentPlayer.id);
+                updatePlayerOnlineStatus(true);
+                
+                // إدارة حالة الاتصال
+                window.addEventListener('beforeunload', () => {
+                    if (gameState.playerRef) {
+                        updatePlayerOnlineStatus(false);
+                    }
+                });
+            }
+            
+            function updatePlayerOnlineStatus(isOnline) {
+                if (gameState.playerRef) {
+                    gameState.playerRef.update({
+                        isOnline: isOnline,
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
+            }
+            
+            function startGame() {
+                if (!gameState.isHost) return;
+                
+                // توزيع الأدوار
+                const rolesPool = generateRolesPool();
+                const rolesAssignment = {};
+                
+                gameState.players.forEach((player, index) => {
+                    rolesAssignment[player.id] = rolesPool[index];
+                });
+                
+                // حفظ الأدوار في قاعدة البيانات
+                gameState.gameRef.update({
+                    'roles': rolesAssignment,
+                    'settings/status': 'playing',
+                    'settings/startedAt': firebase.database.ServerValue.TIMESTAMP
+                })
+                .catch(error => {
+                    console.error('Error starting game:', error);
+                    alert('حدث خطأ أثناء بدء اللعبة. الرجاء المحاولة مرة أخرى.');
+                });
+            }
+            
+            function generateRolesPool() {
+                let rolesPool = [];
+                const playerCount = gameState.players.length;
+                
+                // تحديد عدد المستذئبين حسب عدد اللاعبين
+                const werewolfCount = Math.max(2, Math.floor(playerCount / 4));
+                for (let i = 0; i < werewolfCount; i++) {
+                    // 20% فرصة أن يكون مستذئب أبيض إذا كان هناك أكثر من مستذئب واحد
+                    if (i === 0 && werewolfCount > 1 && Math.random() < 0.2) {
+                        rolesPool.push('white_werewolf');
+                    } else {
+                        rolesPool.push('werewolf');
+                    }
+                }
+                
+                // الأدوار الخاصة حسب عدد اللاعبين
+                if (playerCount >= 5) {
+                    rolesPool.push('seer');
+                    rolesPool.push('witch');
+                }
+                
+                if (playerCount >= 8) {
+                    rolesPool.push('hunter');
+                    rolesPool.push('cupid');
+                }
+                
+                if (playerCount >= 10) {
+                    rolesPool.push('little_girl');
+                }
+                
+                // إكمال الباقي بقرويين
+                while (rolesPool.length < playerCount) {
+                    rolesPool.push('villager');
+                }
+                
+                // خلط الأدوار
+                return shuffleArray(rolesPool);
+            }
+            
+            function updatePlayersList() {
+                playersList.innerHTML = '';
+                gameState.players.forEach(player => {
+                    const playerCard = document.createElement('div');
+                    playerCard.className = `player-card ${player.role ? player.role.replace('_', '-') : ''} ${player.isAlive ? '' : 'dead'}`;
+                    
+                    const playerInfo = document.createElement('div');
+                    playerInfo.className = 'player-info';
+                    
+                    const playerStatus = document.createElement('div');
+                    playerStatus.className = `player-status ${player.isOnline ? 'online' : 'offline'}`;
+                    playerInfo.appendChild(playerStatus);
+                    
+                    const playerName = document.createElement('span');
+                    playerName.textContent = player.name + (player.isHost ? ' (مضيف)' : '');
+                    playerInfo.appendChild(playerName);
+                    
+                    if (player.role) {
+                        const playerRole = document.createElement('div');
+                        playerRole.textContent = roles[player.role].emoji;
+                        playerRole.style.marginRight = '5px';
+                        playerInfo.insertBefore(playerRole, playerInfo.firstChild);
+                    }
+                    
+                    const playerActions = document.createElement('div');
+                    playerActions.className = 'player-actions';
+                    
+                    // في اللوبي، يمكن للمضيف طرد اللاعبين
+                    if (gameState.currentPlayer.isHost && !gameState.gameStarted && player.id !== gameState.currentPlayer.id) {
+                        const kickBtn = document.createElement('button');
+                        kickBtn.textContent = 'طرد';
+                        kickBtn.className = 'danger';
+                        kickBtn.addEventListener('click', () => kickPlayer(player.id));
+                        playerActions.appendChild(kickBtn);
+                    }
+                    
+                    playerCard.appendChild(playerInfo);
+                    playerCard.appendChild(playerActions);
+                    playersList.appendChild(playerCard);
+                });
+            }
+            
+            function kickPlayer(playerId) {
+                if (!gameState.isHost) return;
+                
+                gameState.gameRef.child('players/' + playerId).remove()
+                    .catch(error => {
+                        console.error('Error kicking player:', error);
+                        alert('حدث خطأ أثناء طرد اللاعب. الرجاء المحاولة مرة أخرى.');
+                    });
+            }
+            
+            function showPlayerRole() {
+                const role = roles[gameState.currentRole];
+                currentRoleName.textContent = role.name + ' ' + role.emoji;
+                currentRoleDesc.textContent = role.description;
+                
+                // في اللوبي، نعرض الدور فقط إذا كانت اللعبة قد بدأت
+                const lobbyRoleInfo = document.getElementById('lobby-role-info');
+                const lobbyRoleName = document.getElementById('lobby-role-name');
+                const lobbyRoleDesc = document.getElementById('lobby-role-desc');
+                
+                lobbyRoleName.textContent = role.name + ' ' + role.emoji;
+                lobbyRoleDesc.textContent = role.description;
+                lobbyRoleInfo.classList.remove('hidden');
+            }
+            
+            function startNightPhase() {
+                gameState.currentPhase = 'night';
+                gameState.dayNumber++;
+                
+                // تحديث واجهة المستخدم
+                nightIndicator.classList.remove('hidden');
+                dayIndicator.classList.add('hidden');
+                document.getElementById('day-number').textContent = gameState.dayNumber;
+                document.getElementById('day-number-day').textContent = gameState.dayNumber;
+                
+                // إخفاء إجراءات النهار
+                dayActions.classList.add('hidden');
+                
+                // عرض إجراءات الليل إذا كان للاعب دور نشط
+                if (roles[gameState.currentRole].nightAction) {
+                    nightActions.classList.remove('hidden');
+                    setupNightActions();
+                } else {
+                    nightActions.classList.add('hidden');
+                }
+                
+                // إضافة رسالة للسجل
+                addGameEvent(`بدأت ليلة اليوم ${gameState.dayNumber}`);
+                
+                // في الواقع، هنا سيتم انتظار جميع اللاعبين لإكمال إجراءاتهم
+            }
+            
+            function setupNightActions() {
+                roleSpecificActions.innerHTML = '';
+                
+                const role = roles[gameState.currentRole];
+                
+                // عرض التعليمات الخاصة بالدور
+                const actionTitle = document.createElement('h4');
+                actionTitle.textContent = role.nightAction;
+                roleSpecificActions.appendChild(actionTitle);
+                
+                // إنشاء قائمة باللاعبين الأحياء الذين يمكن استهدافهم
+                const alivePlayers = gameState.players.filter(p => p.isAlive && p.id !== gameState.currentPlayer.id);
+                
+                if (alivePlayers.length > 0) {
+                    // بناء واجهة الإجراء حسب الدور
+                    if (gameState.currentRole === 'cupid' && gameState.dayNumber === 1) {
+                        // كيوبيد يحتاج لاختيار لاعبين اثنين في الليلة الأولى
+                        setupCupidAction(alivePlayers);
+                    } else if (gameState.currentRole === 'witch') {
+                        // الساحرة يمكنها الاختيار بين الإنقاذ أو القتل
+                        setupWitchAction(alivePlayers);
+                    } else {
+                        // الأدوار الأخرى تختار لاعباً واحداً
+                        setupDefaultNightAction(alivePlayers);
+                    }
+                } else {
+                    const noPlayersMsg = document.createElement('p');
+                    noPlayersMsg.textContent = 'لا يوجد لاعبون آخرون أحياء';
+                    roleSpecificActions.appendChild(noPlayersMsg);
+                    submitNightAction.disabled = true;
+                }
+            }
+            
+            function setupDefaultNightAction(alivePlayers) {
+                const select = document.createElement('select');
+                select.id = 'night-action-target';
+                select.innerHTML = '<option value="">اختر لاعباً</option>';
+                
+                alivePlayers.forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player.id;
+                    option.textContent = player.name;
+                    select.appendChild(option);
+                });
+                
+                roleSpecificActions.appendChild(select);
+                
+                // إضافة حدث لتحديد اللاعب
+                select.addEventListener('change', (e) => {
+                    gameState.selectedPlayer = e.target.value;
+                    submitNightAction.disabled = !e.target.value;
+                });
+            }
+            
+            function setupCupidAction(alivePlayers) {
+                const instruction = document.createElement('p');
+                instruction.textContent = 'اختر لاعبين لربطهما بالحب:';
+                roleSpecificActions.appendChild(instruction);
+                
+                // إنشاء قائمة اختيار متعددة
+                const select = document.createElement('select');
+                select.id = 'cupid-action-target';
+                select.multiple = true;
+                select.size = Math.min(5, alivePlayers.length);
+                
+                alivePlayers.forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player.id;
+                    option.textContent = player.name;
+                    select.appendChild(option);
+                });
+                
+                roleSpecificActions.appendChild(select);
+                
+                // تعليمات للاختيار المتعدد
+                const helpText = document.createElement('small');
+                helpText.textContent = '(اضغط زر Ctrl لاختيار أكثر من لاعب)';
+                roleSpecificActions.appendChild(helpText);
+                
+                // إضافة حدث لتحديد اللاعبين
+                select.addEventListener('change', (e) => {
+                    const selectedOptions = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                    gameState.selectedPlayer = selectedOptions.length === 2 ? selectedOptions : null;
+                    submitNightAction.disabled = selectedOptions.length !== 2;
+                });
+            }
+            
+            function setupWitchAction(alivePlayers) {
+                // الساحرة يمكنها استخدام جرعة الإنقاذ أو القتل أو لا شيء
+                const choiceDiv = document.createElement('div');
+                choiceDiv.style.display = 'flex';
+                choiceDiv.style.flexDirection = 'column';
+                choiceDiv.style.gap = '10px';
+                
+                // جرعة الإنقاذ
+                const saveDiv = document.createElement('div');
+                saveDiv.style.display = 'flex';
+                saveDiv.style.alignItems = 'center';
+                saveDiv.style.gap = '10px';
+                
+                const saveCheckbox = document.createElement('input');
+                saveCheckbox.type = 'checkbox';
+                saveCheckbox.id = 'witch-save';
+                saveDiv.appendChild(saveCheckbox);
+                
+                const saveLabel = document.createElement('label');
+                saveLabel.htmlFor = 'witch-save';
+                saveLabel.textContent = 'استخدام جرعة الإنقاذ على:';
+                saveDiv.appendChild(saveLabel);
+                
+                const saveSelect = document.createElement('select');
+                saveSelect.id = 'witch-save-target';
+                saveSelect.disabled = true;
+                saveSelect.innerHTML = '<option value="">اختر لاعباً</option>';
+                
+                alivePlayers.forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player.id;
+                    option.textContent = player.name;
+                    saveSelect.appendChild(option);
+                });
+                
+                saveDiv.appendChild(saveSelect);
+                choiceDiv.appendChild(saveDiv);
+                
+                // جرعة القتل
+                const killDiv = document.createElement('div');
+                killDiv.style.display = 'flex';
+                killDiv.style.alignItems = 'center';
+                killDiv.style.gap = '10px';
+                
+                const killCheckbox = document.createElement('input');
+                killCheckbox.type = 'checkbox';
+                killCheckbox.id = 'witch-kill';
+                killDiv.appendChild(killCheckbox);
+                
+                const killLabel = document.createElement('label');
+                killLabel.htmlFor = 'witch-kill';
+                killLabel.textContent = 'استخدام جرعة القتل على:';
+                killDiv.appendChild(killLabel);
+                
+                const killSelect = document.createElement('select');
+                killSelect.id = 'witch-kill-target';
+                killSelect.disabled = true;
+                killSelect.innerHTML = '<option value="">اختر لاعباً</option>';
+                
+                alivePlayers.forEach(player => {
+                    const option = document.createElement('option');
+                    option.value = player.id;
+                    option.textContent = player.name;
+                    killSelect.appendChild(option);
+                });
+                
+                killDiv.appendChild(killSelect);
+                choiceDiv.appendChild(killDiv);
+                
+                roleSpecificActions.appendChild(choiceDiv);
+                
+                // أحداث التفعيل/تعطيل
+                saveCheckbox.addEventListener('change', (e) => {
+                    saveSelect.disabled = !e.target.checked;
+                    killCheckbox.disabled = e.target.checked;
+                    killSelect.disabled = true;
+                    updateWitchSubmitButton();
+                });
+                
+                killCheckbox.addEventListener('change', (e) => {
+                    killSelect.disabled = !e.target.checked;
+                    saveCheckbox.disabled = e.target.checked;
+                    saveSelect.disabled = true;
+                    updateWitchSubmitButton();
+                });
+                
+                saveSelect.addEventListener('change', updateWitchSubmitButton);
+                killSelect.addEventListener('change', updateWitchSubmitButton);
+                
+                function updateWitchSubmitButton() {
+                    const saveChecked = saveCheckbox.checked;
+                    const killChecked = killCheckbox.checked;
+                    
+                    if (saveChecked) {
+                        gameState.selectedPlayer = {
+                            action: 'save',
+                            target: saveSelect.value
+                        };
+                    } else if (killChecked) {
+                        gameState.selectedPlayer = {
+                            action: 'kill',
+                            target: killSelect.value
+                        };
+                    } else {
+                        gameState.selectedPlayer = {
+                            action: 'none',
+                            target: null
+                        };
+                    }
+                    
+                    submitNightAction.disabled = !(
+                        (saveChecked && saveSelect.value) || 
+                        (killChecked && killSelect.value) ||
+                        (!saveChecked && !killChecked)
+                    );
+                }
+            }
+            
+            function submitNightActionHandler() {
+                if (!gameState.selectedPlayer) return;
+                
+                let actionMessage = '';
+                let actionData = {};
+                
+                // تحديد الإجراء حسب الدور
+                switch (gameState.currentRole) {
+                    case 'werewolf':
+                    case 'white_werewolf':
+                        const targetPlayer = gameState.players.find(p => p.id === gameState.selectedPlayer);
+                        actionMessage = `المستذئبون قرروا قتل ${targetPlayer.name} هذه الليلة`;
+                        actionData = {
+                            type: 'werewolf_kill',
+                            target: gameState.selectedPlayer
+                        };
+                        break;
+                        
+                    case 'seer':
+                        const seenPlayer = gameState.players.find(p => p.id === gameState.selectedPlayer);
+                        actionMessage = `العراف كشف هوية ${seenPlayer.name}`;
+                        actionData = {
+                            type: 'seer_reveal',
+                            target: gameState.selectedPlayer,
+                            role: seenPlayer.role
+                        };
+                        break;
+                        
+                    case 'witch':
+                        if (gameState.selectedPlayer.action === 'save') {
+                            const savedPlayer = gameState.players.find(p => p.id === gameState.selectedPlayer.target);
+                            actionMessage = `الساحرة استخدمت جرعة الإنقاذ على ${savedPlayer.name}`;
+                            actionData = {
+                                type: 'witch_save',
+                                target: gameState.selectedPlayer.target
+                            };
+                        } else if (gameState.selectedPlayer.action === 'kill') {
+                            const killedPlayer = gameState.players.find(p => p.id === gameState.selectedPlayer.target);
+                            actionMessage = `الساحرة استخدمت جرعة القتل على ${killedPlayer.name}`;
+                            actionData = {
+                                type: 'witch_kill',
+                                target: gameState.selectedPlayer.target
+                            };
+                        } else {
+                            actionMessage = 'الساحرة اختارت عدم استخدام أي جرعة هذه الليلة';
+                            actionData = {
+                                type: 'witch_none'
+                            };
+                        }
+                        break;
+                        
+                    case 'cupid':
+                        if (Array.isArray(gameState.selectedPlayer)) {
+                            const lover1 = gameState.players.find(p => p.id === gameState.selectedPlayer[0]);
+                            const lover2 = gameState.players.find(p => p.id === gameState.selectedPlayer[1]);
+                            actionMessage = `كيوبيد ربط بين ${lover1.name} و${lover2.name} بالحب`;
+                            actionData = {
+                                type: 'cupid_lovers',
+                                lovers: gameState.selectedPlayer
+                            };
+                        }
+                        break;
+                }
+                
+                // حفظ الإجراء في قاعدة البيانات
+                if (actionData.type) {
+                    gameState.gameRef.child('actions/' + gameState.currentPlayer.id).set(actionData)
+                        .then(() => {
+                            addLogEntry(actionMessage);
+                            
+                            // في الواقع، هنا سيكون هناك انتظار لجميع الإجراءات قبل الانتقال إلى النهار
+                            // لكن للتبسيط، سننتقل بعد ثانيتين
+                            setTimeout(() => {
+                                if (gameState.currentPlayer.isHost) {
+                                    processNightActions();
+                                }
+                            }, 2000);
+                        });
+                }
+            }
+            
+            function processNightActions() {
+                // جمع جميع الإجراءات الليلية وتنفيذها
+                gameState.gameRef.child('actions').once('value')
+                    .then(snapshot => {
+                        const actions = snapshot.val() || {};
+                        const nightResults = {
+                            killed: [],
+                            saved: [],
+                            revealed: [],
+                            lovers: []
+                        };
+                        
+                        // معالجة كل إجراء
+                        Object.keys(actions).forEach(playerId => {
+                            const action = actions[playerId];
+                            
+                            switch (action.type) {
+                                case 'werewolf_kill':
+                                    nightResults.killed.push(action.target);
+                                    break;
+                                    
+                                case 'witch_save':
+                                    nightResults.saved.push(action.target);
+                                    break;
+                                    
+                                case 'witch_kill':
+                                    nightResults.killed.push(action.target);
+                                    break;
+                                    
+                                case 'seer_reveal':
+                                    nightResults.revealed.push({
+                                        player: action.target,
+                                        role: action.role
+                                    });
+                                    break;
+                                    
+                                case 'cupid_lovers':
+                                    nightResults.lovers = action.lovers;
+                                    break;
+                            }
+                        });
+                        
+                        // تطبيق النتائج
+                        // 1. إزالة اللاعبين الذين تم إنقاذهم من قائمة القتلى
+                        const finalKilled = nightResults.killed.filter(target => 
+                            !nightResults.saved.includes(target));
+                        
+                        // 2. تحديث حالة اللاعبين
+                        const updates = {};
+                        finalKilled.forEach(playerId => {
+                            updates['players/' + playerId + '/isAlive'] = false;
+                        });
+                        
+                        // 3. إذا كان هناك عشاق، حفظهم
+                        if (nightResults.lovers.length === 2) {
+                            updates['settings/lovers'] = nightResults.lovers;
+                        }
+                        
+                        // 4. مسح الإجراءات الليلية للجولة القادمة
+                        updates['actions'] = null;
+                        
+                        // 5. الانتقال إلى مرحلة النهار
+                        updates['settings/phase'] = 'day';
+                        
+                        // تنفيذ جميع التحديثات
+                        return gameState.gameRef.update(updates);
+                    })
+                    .then(() => {
+                        // إضافة رسالة عن نتائج الليل
+                        addGameEvent('انتهت ليلة اليوم ' + gameState.dayNumber);
+                        
+                        // في الواقع، هنا سيتم إعلام جميع اللاعبين بالانتقال إلى النهار
+                        startDayPhase();
+                    });
+            }
+            
+            function startDayPhase() {
+                gameState.currentPhase = 'day';
+                
+                // تحديث واجهة المستخدم
+                nightIndicator.classList.add('hidden');
+                dayIndicator.classList.remove('hidden');
+                
+                // إخفاء إجراءات الليل
+                nightActions.classList.add('hidden');
+                
+                // عرض إجراءات النهار
+                dayActions.classList.remove('hidden');
+                
+                // عرض نتائج الليل
+                showNightResults();
+                
+                // إعداد التصويت
+                setupVoting();
+                
+                // إضافة رسالة للسجل
+                addGameEvent(`بدأ نهار اليوم ${gameState.dayNumber}`);
+            }
+            
+            function showNightResults() {
+                // في الواقع، هذه المعلومات ستأتي من قاعدة البيانات
+                // لكننا سنعرض رسالة عشوائية للعرض التوضيحي
+                const randomEvents = [
+                    'ليلة هادئة مرت دون أحداث',
+                    'سمع القرويون صوت عواء في الغابة',
+                    `تم العثور على ${getRandomPlayerName()} مقتولاً في الصباح`,
+                    'لم تحدث أي جرائم الليلة الماضية',
+                    `وجد القرويون جثة ${getRandomPlayerName()} في الساحة`
+                ];
+                
+                const randomEvent = randomEvents[Math.floor(Math.random() * randomEvents.length)];
+                nightResults.textContent = randomEvent;
+            }
+            
+            function setupVoting() {
+                votingButtons.innerHTML = '';
+                
+                // إنشاء أزرار التصويت للاعبين الأحياء
+                const alivePlayers = gameState.players.filter(p => p.isAlive && p.id !== gameState.currentPlayer.id);
+                
+                if (alivePlayers.length > 0) {
+                    alivePlayers.forEach(player => {
+                        const button = document.createElement('button');
+                        button.textContent = player.name;
+                        button.dataset.playerId = player.id;
+                        
+                        button.addEventListener('click', () => {
+                            // إلغاء تحديد أي أزرار أخرى
+                            document.querySelectorAll('#voting-buttons button').forEach(btn => {
+                                btn.classList.remove('selected');
+                            });
+                            
+                            // تحديد الزر الحالي
+                            button.classList.add('selected');
+                            gameState.voteTarget = player.id;
+                            submitVote.disabled = false;
+                        });
+                        
+                        votingButtons.appendChild(button);
+                    });
+                } else {
+                    const noPlayersMsg = document.createElement('p');
+                    noPlayersMsg.textContent = 'لا يوجد لاعبون آخرون أحياء للتصويت ضدهم';
+                    votingButtons.appendChild(noPlayersMsg);
+                    submitVote.disabled = true;
+                }
+            }
+            
+            function submitVoteHandler() {
+                if (!gameState.voteTarget) return;
+                
+                const targetPlayer = gameState.players.find(p => p.id === gameState.voteTarget);
+                if (!targetPlayer) return;
+                
+                // في الواقع، هنا سيتم إرسال التصويت للخادم
+                addLogEntry(`صوتت ضد ${targetPlayer.name}`);
+                
+                // محاكاة نتيجة التصويت
+                setTimeout(() => {
+                    // في الواقع، هذه النتيجة ستأتي من الخادم بعد جمع جميع الأصوات
+                    const isExecuted = Math.random() > 0.5;
+                    
+                    if (isExecuted) {
+                        targetPlayer.isAlive = false;
+                        addLogEntry(`تم إعدام ${targetPlayer.name} (كان ${roles[targetPlayer.role].name})`);
+                        
+                        // إذا كان الصياد، ينفذ إجراءه
+                        if (targetPlayer.role === 'hunter') {
+                            addLogEntry(`${targetPlayer.name} (الصياد) يقتل لاعباً آخر قبل موته!`);
+                            // هنا سيتم اختيار لاعب آخر للقتل
+                        }
+                        
+                        // التحقق من شروط الفوز
+                        checkWinConditions();
+                    } else {
+                        addLogEntry(`لم يتم إعدام ${targetPlayer.name}، الأصوات لم تكن كافية`);
+                    }
+                    
+                    // الانتقال إلى الليل التالي
+                    if (gameState.gameStarted) {
+                        startNightPhase();
+                    }
+                }, 2000);
+            }
+            
+            function checkWinConditions() {
+                // حساب عدد المستذئبين الأحياء
+                const aliveWerewolves = gameState.players.filter(p => 
+                    p.isAlive && (p.role === 'werewolf' || p.role === 'white_werewolf')).length;
+                
+                // حساب عدد القرويين الأحياء
+                const aliveVillagers = gameState.players.filter(p => 
+                    p.isAlive && p.role !== 'werewolf' && p.role !== 'white_werewolf').length;
+                
+                // شروط الفوز
+                if (aliveWerewolves === 0) {
+                    endGame('فوز القرويين', 'تم القضاء على جميع المستذئبين!', 
+                           gameState.players.filter(p => p.role !== 'werewolf' && p.role !== 'white_werewolf'));
+                } else if (aliveWerewolves >= aliveVillagers) {
+                    endGame('فوز المستذئبين', 'المستذئبون تفوقوا على القرويين!', 
+                           gameState.players.filter(p => p.role === 'werewolf' || p.role === 'white_werewolf'));
+                }
+                // يمكن إضافة شروط فوز أخرى للأدوار الخاصة
+            }
+            
+            function endGame(title, message, winners) {
+                gameState.gameStarted = false;
+                
+                // عرض شاشة النهاية
+                gameResultTitle.textContent = title;
+                gameResultDesc.textContent = message;
+                
+                // عرض اللاعبين الفائزين
+                winnerPlayers.innerHTML = '';
+                if (winners && winners.length > 0) {
+                    const winnersTitle = document.createElement('h4');
+                    winnersTitle.textContent = 'الفائزون:';
+                    winnerPlayers.appendChild(winnersTitle);
+                    
+                    const winnersList = document.createElement('div');
+                    winnersList.className = 'player-list';
+                    
+                    winners.forEach(player => {
+                        const playerCard = document.createElement('div');
+                        playerCard.className = `player-card ${player.role ? player.role.replace('_', '-') : ''}`;
+                        
+                        const playerInfo = document.createElement('div');
+                        playerInfo.className = 'player-info';
+                        
+                        const playerRole = document.createElement('div');
+                        playerRole.textContent = roles[player.role].emoji;
+                        playerInfo.appendChild(playerRole);
+                        
+                        const playerName = document.createElement('span');
+                        playerName.textContent = player.name;
+                        playerInfo.appendChild(playerName);
+                        
+                        playerCard.appendChild(playerInfo);
+                        winnersList.appendChild(playerCard);
+                    });
+                    
+                    winnerPlayers.appendChild(winnersList);
+                }
+                
+                gameOverPanel.classList.remove('hidden');
+                
+                // إضافة رسالة للسجل
+                addGameEvent(`انتهت اللعبة: ${title} - ${message}`);
+                
+                // في الواقع، هنا سيتم تحديث حالة اللعبة في قاعدة البيانات
+                if (gameState.isHost) {
+                    const gameOverEvent = {
+                        type: 'game_over',
+                        message: `انتهت اللعبة: ${title}`,
+                        data: {
+                            title: title,
+                            message: message,
+                            winners: winners.map(p => p.id)
+                        },
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    
+                    gameState.gameRef.child('events').push(gameOverEvent);
+                    gameState.gameRef.child('settings/status').set('finished');
+                }
+            }
+            
+            function returnToLobby() {
+                gameOverPanel.classList.add('hidden');
+                gameScreen.classList.remove('active');
+                lobbyScreen.classList.add('active');
+                
+                // إعادة تعيين حالة اللعبة
+                resetGameState();
+            }
+            
+            function leaveLobby() {
+                // في الواقع، هنا سيتم إزالة اللاعب من قاعدة البيانات
+                if (gameState.playerRef) {
+                    gameState.playerRef.remove();
+                }
+                
+                lobbyScreen.classList.remove('active');
+                welcomeScreen.classList.add('active');
+                
+                // إعادة تعيين حالة اللعبة
+                resetGameState();
+            }
+            
+            function resetGameState() {
+                gameState.players = [];
+                gameState.gameStarted = false;
+                gameState.currentPhase = 'lobby';
+                gameState.dayNumber = 0;
+                gameState.currentRole = null;
+                gameState.selectedPlayer = null;
+                gameState.voteTarget = null;
+                gameState.gameLog = [];
+                
+                if (gameState.gameRef) {
+                    gameState.gameRef.off();
+                    gameState.gameRef = null;
+                }
+                
+                if (gameState.playerRef) {
+                    gameState.playerRef.off();
+                    gameState.playerRef = null;
+                }
+                
+                // مسح سجل الأحداث
+                logEntries.innerHTML = '';
+            }
+            
+            function addLogEntry(message) {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                logEntries.appendChild(entry);
+                
+                // التمرير إلى الأسفل لعرض أحدث الرسائل
+                logEntries.scrollTop = logEntries.scrollHeight;
+                
+                // حفظ الرسالة في سجل اللعبة
+                gameState.gameLog.push(message);
+            }
+            
+            function addGameEvent(message) {
+                addLogEntry(message);
+                
+                // في الواقع، هنا سيتم إرسال الحدث إلى قاعدة البيانات إذا كنت المضيف
+                if (gameState.isHost) {
+                    const event = {
+                        type: 'game_event',
+                        message: message,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    
+                    gameState.gameRef.child('events').push(event);
+                }
+            }
+            
+            function getRandomPlayerName() {
+                const alivePlayers = gameState.players.filter(p => p.isAlive);
+                if (alivePlayers.length === 0) return 'لاعب';
+                
+                const randomPlayer = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+                return randomPlayer.name;
+            }
+            
+            function copyGameId() {
+                if (!gameState.gameId) return;
+                
+                navigator.clipboard.writeText(gameState.gameId)
+                    .then(() => {
+                        const copyBtn = document.querySelector('.copy-btn');
+                        const originalText = copyBtn.textContent;
+                        copyBtn.textContent = 'تم النسخ!';
+                        
+                        setTimeout(() => {
+                            copyBtn.textContent = originalText;
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy game ID:', err);
+                    });
+            }
+            
+            function generateId() {
+                return Math.random().toString(36).substr(2, 9);
+            }
+            
+            function generateGameId() {
+                // إنشاء معرف غرفة سهل القراءة
+                const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+                const numbers = '23456789';
+                let id = '';
+                
+                for (let i = 0; i < 3; i++) {
+                    id += letters.charAt(Math.floor(Math.random() * letters.length));
+                }
+                
+                for (let i = 0; i < 3; i++) {
+                    id += numbers.charAt(Math.floor(Math.random() * numbers.length));
+                }
+                
+                return id;
+            }
+            
+            function shuffleArray(array) {
+                const newArray = [...array];
+                for (let i = newArray.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+                }
+                return newArray;
+            }
+            
+            function updateGameSettings() {
+                const playerCount = parseInt(playerCountInput.value);
+                
+                // تحديث الأدوات المتاحة حسب عدد اللاعبين
+                if (playerCount < 8) {
+                    gameModeSelect.value = 'classic';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
